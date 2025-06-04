@@ -1,17 +1,20 @@
-# app
 
-A new Flutter project.
+# SkinVision
 
-## Getting Started
+SkinVision is a Flutter-based healthcare application focused on early detection and management of skin cancer through a modern, intuitive interface. It comprises three specialized panels:
 
-This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-# Skin-Vision
+
+Patient Panel: Patients can upload images of skin lesions for AI-powered skin cancer analysis, receiving instant results. They can search for dermatologists based on location or specialization, book appointments, and engage in real-time chats for consultations. The panel includes a user-friendly dashboard to track scan history and manage communication with doctors.
+
+
+
+Doctor Panel: Dermatologists access patient-submitted scans, review AI-generated reports, and provide professional assessments. They can respond to patient queries via chat, manage appointment schedules, and update patient records securely. The interface is optimized for efficient case management and collaboration.
+
+
+
+Admin Panel: Admins have full control over the platform, including creating and managing doctor and patient accounts, monitoring user interactions, and generating detailed reports on usage, scan statistics, and system performance. The panel ensures secure data oversight and scalability.
+
+SkinVision integrates secure encryption for data privacy, real-time Firebase-based messaging, and a responsive design. It empowers patients to take charge of their skin health, equips doctors with tools for effective care, and enables
