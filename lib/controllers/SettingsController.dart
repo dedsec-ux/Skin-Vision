@@ -5,6 +5,9 @@ import 'package:get/get.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import '../controllers/ImageEncryptionService.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import '../screens/login_screen.dart';
 
@@ -13,52 +16,185 @@ class SettingsController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Variables for doctor details
-  var doctorName = ''.obs;
-  var doctorDesignation = ''.obs;
-  var doctorDescription = ''.obs;
-  var doctorImage = ''.obs;
-  var isOnline = false.obs;
-  var isImageEncrypted = true.obs; // Flag to indicate if image is encrypted
-  var uploadProgress = 0.0.obs; // Track image upload progress
+  // User data
+  final RxString userId = ''.obs;
+  final RxString doctorName = ''.obs;
+  final RxString doctorEmail = ''.obs;
+  final RxString doctorImage = ''.obs;
+  final RxString doctorDesignation = ''.obs;
+  final RxString doctorDescription = ''.obs;
+  final RxBool isImageEncrypted = false.obs;
+  final RxBool isAvailable = false.obs;
+  final RxDouble doctorLatitude = 0.0.obs;
+  final RxDouble doctorLongitude = 0.0.obs;
+  final RxString doctorAddress = ''.obs;
+  final RxDouble uploadProgress = 0.0.obs;
+  final profileImage = Rx<Uint8List?>(null);
 
-  // Fetch doctor details from Firestore
+  @override
+  void onInit() {
+    super.onInit();
+    ever(userId, (_) => loadProfileImage());
+    userId.value = _auth.currentUser?.uid ?? '';
+  }
+
   Future<void> fetchDoctorDetails() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (userDoc.exists) {
-        try {
-          final data = userDoc.data() as Map<String, dynamic>;
-          doctorName.value = data['username'] ?? data['name'] ?? '';
-          doctorDesignation.value = data['designation'] ?? '';
-          doctorDescription.value = data['description'] ?? '';
-          
-          // Check if image is stored separately due to size
-          final hasLargeImage = data['hasLargeImage'] ?? false;
-          
-          if (hasLargeImage) {
-            // Fetch image from separate collection
-            final imageDoc = await _firestore.collection('user_images').doc(user.uid).get();
-            if (imageDoc.exists) {
-              doctorImage.value = imageDoc.data()?['image'] ?? '';
-            } else {
-              doctorImage.value = '';
-            }
-          } else {
-            doctorImage.value = data['image'] ?? '';
-          }
-          
-          isOnline.value = data['availability'] ?? false;
-          
-          // Safely check if isImageEncrypted exists in the document
-          // If not, default to false (not encrypted)
-          isImageEncrypted.value = data.containsKey('isImageEncrypted') ? 
-              data['isImageEncrypted'] ?? false : false;
-        } catch (e) {
-          print('Error parsing user data: $e');
-        }
+    try {
+      if (userId.value.isEmpty) {
+        userId.value = _auth.currentUser?.uid ?? '';
       }
+
+      if (userId.value.isEmpty) {
+        print('No user ID available');
+        return;
+      }
+
+      DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(userId.value)
+          .get();
+
+      if (!doc.exists) {
+        print('Doctor document does not exist');
+        return;
+      }
+
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+      doctorName.value = data['username'] ?? '';
+      doctorEmail.value = data['email'] ?? '';
+      isImageEncrypted.value = data['isImageEncrypted'] ?? false;
+      isAvailable.value = data['availability'] ?? false;
+      doctorDesignation.value = data['designation'] ?? '';
+      doctorDescription.value = data['description'] ?? '';
+      doctorLatitude.value = (data['latitude'] ?? 0.0).toDouble();
+      doctorLongitude.value = (data['longitude'] ?? 0.0).toDouble();
+      doctorAddress.value = data['address'] ?? '';
+
+      // Handle image loading
+      final bool hasLargeImage = data['hasLargeImage'] ?? false;
+      if (hasLargeImage) {
+        // Image is stored in separate collection
+        final imageDoc = await _firestore
+            .collection('user_images')
+            .doc(userId.value)
+            .get();
+        
+        if (imageDoc.exists) {
+          final imageData = imageDoc.data() as Map<String, dynamic>;
+          doctorImage.value = imageData['image'] ?? '';
+        } else {
+          doctorImage.value = '';
+        }
+      } else {
+        // Image is stored directly in user document
+        doctorImage.value = data['image'] ?? '';
+      }
+
+    } catch (e) {
+      print('Error fetching doctor details: $e');
+    }
+  }
+
+  Future<void> updateAvailability(bool value) async {
+    try {
+      if (userId.value.isEmpty) return;
+
+      await _firestore
+          .collection('users')
+          .doc(userId.value)
+          .update({'availability': value});
+
+      isAvailable.value = value;
+
+      Get.snackbar(
+        'Success',
+        'Availability status updated',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
+        colorText: Get.theme.colorScheme.onSurface,
+      );
+    } catch (e) {
+      print('Error updating availability: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to update availability status',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
+    }
+  }
+
+  Future<void> updateLocation(String address, double latitude, double longitude) async {
+    try {
+      if (userId.value.isEmpty) return;
+
+      await _firestore
+          .collection('users')
+          .doc(userId.value)
+          .update({
+            'address': address,
+            'latitude': latitude,
+            'longitude': longitude,
+          });
+
+      doctorAddress.value = address;
+      doctorLatitude.value = latitude;
+      doctorLongitude.value = longitude;
+
+      Get.snackbar(
+        'Success',
+        'Location updated successfully',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
+        colorText: Get.theme.colorScheme.onSurface,
+      );
+    } catch (e) {
+      print('Error updating location: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to update location',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
+    }
+  }
+
+  Future<void> removeLocation() async {
+    try {
+      if (userId.value.isEmpty) return;
+
+      await _firestore
+          .collection('users')
+          .doc(userId.value)
+          .update({
+            'address': '',
+            'latitude': 0.0,
+            'longitude': 0.0,
+          });
+
+      doctorAddress.value = '';
+      doctorLatitude.value = 0.0;
+      doctorLongitude.value = 0.0;
+
+      Get.snackbar(
+        'Success',
+        'Location removed successfully',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
+        colorText: Get.theme.colorScheme.onSurface,
+      );
+    } catch (e) {
+      print('Error removing location: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to remove location',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
     }
   }
 
@@ -131,49 +267,47 @@ class SettingsController extends GetxController {
 
   // Change user password
   Future<void> changePassword(String currentPassword, String newPassword) async {
-    final user = _auth.currentUser;
-    if (user == null || user.email == null) {
-      throw 'No user is currently signed in';
-    }
-
     try {
-      // Create credentials with current email and password
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: currentPassword,
+      Get.dialog(
+        Center(
+          child: LoadingAnimationWidget.staggeredDotsWave(
+            color: Get.theme.colorScheme.primary,
+            size: 45,
+          ),
+        ),
+        barrierDismissible: false,
       );
 
-      // Reauthenticate user before changing password
-      await user.reauthenticateWithCredential(credential);
+      User? user = _auth.currentUser;
+      if (user != null && user.email != null) {
+        // Re-authenticate user
+        AuthCredential credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
+        
+        // Change password
+        await user.updatePassword(newPassword);
+        Get.back(); // Close loading dialog
 
-      // Change password
-      await user.updatePassword(newPassword);
-      
-      Get.snackbar(
-        'Success', 
-        'Password updated successfully!',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.withOpacity(0.1),
-        colorText: Colors.green,
-      );
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'wrong-password':
-          errorMessage = 'Current password is incorrect';
-          break;
-        case 'weak-password':
-          errorMessage = 'New password is too weak';
-          break;
-        case 'requires-recent-login':
-          errorMessage = 'Please log in again before changing your password';
-          break;
-        default:
-          errorMessage = e.message ?? 'An error occurred while changing password';
+        Get.snackbar(
+          'Success',
+          'Password changed successfully',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Get.theme.colorScheme.primaryContainer,
+          colorText: Get.theme.colorScheme.onPrimaryContainer,
+        );
       }
-      throw errorMessage;
     } catch (e) {
-      throw e.toString();
+      Get.back(); // Close loading dialog
+      Get.snackbar(
+        'Error',
+        'Failed to change password: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
     }
   }
 
@@ -331,19 +465,6 @@ class SettingsController extends GetxController {
     }
   }
 
-  // Toggle availability in Firestore
-  Future<void> toggleAvailability(bool value) async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      await _firestore.collection('users').doc(user.uid).update({
-        'availability': value,
-      });
-      isOnline.value = value;
-      Get.snackbar('Success', 'Availability updated successfully!',
-          snackPosition: SnackPosition.TOP);
-    }
-  }
-
   // Delete user account from Firebase
   Future<void> deleteAccount(String email, String password) async {
     try {
@@ -450,5 +571,62 @@ class SettingsController extends GetxController {
             snackPosition: SnackPosition.TOP);
       }
     }
+  }
+
+  Future<void> updateProfileImage(Uint8List imageBytes) async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      // Update the local state
+      profileImage.value = imageBytes;
+
+      // Convert bytes to base64 for storage
+      final base64Image = base64Encode(imageBytes);
+      
+      // Update in Firestore
+      await _firestore.collection('doctors').doc(userId).update({
+        'image': base64Image,
+      });
+    } catch (e) {
+      print('Error updating profile image: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> loadProfileImage() async {
+    try {
+      if (userId.value.isEmpty) return;
+
+      final doc = await _firestore.collection('doctors').doc(userId.value).get();
+      if (!doc.exists) return;
+
+      final data = doc.data();
+      if (data == null || !data.containsKey('image')) return;
+
+      final base64Image = data['image'] as String;
+      if (base64Image.isNotEmpty) {
+        profileImage.value = base64Decode(base64Image);
+      }
+    } catch (e) {
+      print('Error loading profile image: $e');
+    }
+  }
+
+  // Clear all user data when logging out
+  void clearUserData() {
+    userId.value = '';
+    doctorName.value = '';
+    doctorEmail.value = '';
+    doctorImage.value = '';
+    doctorDesignation.value = '';
+    doctorDescription.value = '';
+    isImageEncrypted.value = false;
+    isAvailable.value = false;
+    doctorLatitude.value = 0.0;
+    doctorLongitude.value = 0.0;
+    doctorAddress.value = '';
+    uploadProgress.value = 0.0;
+    profileImage.value = null;
   }
 }

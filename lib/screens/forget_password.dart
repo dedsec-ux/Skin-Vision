@@ -1,13 +1,13 @@
 import 'package:app/controllers/ForgetPasswordController.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'login_screen.dart';
 
 class ForgetPasswordScreen extends StatefulWidget {
   @override
   _ForgetPasswordScreenState createState() => _ForgetPasswordScreenState();
 }
-
 
 class _ForgetPasswordScreenState extends State<ForgetPasswordScreen>
     with SingleTickerProviderStateMixin {
@@ -56,116 +56,178 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.blueAccent,
-      body: SafeArea(
-        child: Center(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFEDE7F6),  // Very Light Purple
+              Color(0xFFD1C4E9),  // Light Purple
+            ],
+          ),
+        ),
+        child: SafeArea(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                FadeTransition(
-                  opacity: _iconAnimation,
-                  child: Icon(
-                    Icons.lock_reset,
-                    size: 80,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 16),
-                FadeTransition(
-                  opacity: _iconAnimation,
-                  child: Text(
-                    'Reset Password',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+            child: Container(
+              height: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
+              padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // App Icon
+                  FadeTransition(
+                    opacity: _iconAnimation,
+                    child: Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.lock_reset_rounded,
+                        size: 56,
+                        color: colorScheme.secondary,
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: 40),
-                SlideTransition(
-                  position: _formSlideAnimation,
-                  child: Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
+                  SizedBox(height: 12),
+                  // App Name
+                  FadeTransition(
+                    opacity: _iconAnimation,
+                    child: Text(
+                      'Reset Password',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.secondary,
+                      ),
                     ),
-                    child: Form(
+                  ),
+                  SizedBox(height: 24),
+                  // Reset Form
+                  SlideTransition(
+                    position: _formSlideAnimation,
+                    child: Container(
+                      padding: EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 20,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          TextFormField(
+                          // Email Field
+                          Obx(() => TextFormField(
                             controller: emailController,
+                            enabled: !forgetPasswordController.isLoading.value,
                             decoration: InputDecoration(
-                              labelText: 'Email Address',
-                              prefixIcon: Icon(Icons.email, color: Colors.blueAccent),
+                              labelText: 'Email',
+                              labelStyle: TextStyle(color: colorScheme.primary),
+                              prefixIcon: Icon(Icons.email_rounded, color: colorScheme.primary),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: colorScheme.outline),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: colorScheme.outline),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: colorScheme.primary),
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceVariant,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                            style: TextStyle(color: colorScheme.onSurface),
+                          )),
+                          SizedBox(height: 24),
+                          // Reset Button
+                          Obx(() => ElevatedButton(
+                            onPressed: forgetPasswordController.isLoading.value
+                                ? null
+                                : () => forgetPasswordController.sendPasswordResetEmail(
+                                    emailController.text.trim(),
+                                  ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: colorScheme.onPrimary,
+                              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
                               ),
                             ),
-                          ),
+                            child: forgetPasswordController.isLoading.value
+                                ? LoadingAnimationWidget.staggeredDotsWave(
+                                    color: colorScheme.onPrimary,
+                                    size: 45,
+                                  )
+                                : Text(
+                                    'Send Reset Link',
+                                    style: TextStyle(fontSize: 18),
+                                  ),
+                          )),
                           SizedBox(height: 16),
-                          Obx(() {
-                            return forgetPasswordController.isLoading.value
-                                ? CircularProgressIndicator()
-                                : SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blueAccent,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        padding: EdgeInsets.symmetric(vertical: 16),
-                                      ),
-                                      onPressed: () {
-                                        forgetPasswordController.sendPasswordResetEmail(
-                                          emailController.text.trim(),
-                                        );
-                                      },
-                                      child: Text(
-                                        'Send Reset Link',
-                                        style: TextStyle(fontSize: 18),
-                                      ),
-                                    ),
-                                  );
-                          }),
-                          SizedBox(height: 16),
+                          // Error Message
                           Obx(() {
                             if (forgetPasswordController.errorMessage.isNotEmpty) {
-                              return Text(
-                                forgetPasswordController.errorMessage.value,
-                                style: TextStyle(color: Colors.red),
+                              return Padding(
+                                padding: EdgeInsets.only(bottom: 16),
+                                child: Text(
+                                  forgetPasswordController.errorMessage.value,
+                                  style: TextStyle(
+                                    color: colorScheme.error,
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               );
                             }
                             return SizedBox.shrink();
                           }),
-                          TextButton(
-                            onPressed: () {
-                              Get.offAll(LoginScreen());
-                            },
-                            child: Text(
-                              'Back to Login',
-                              style: TextStyle(color: Colors.blueAccent),
+                          // Back to Login Button
+                          Container(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surface,
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            child: Obx(() => TextButton(
+                              onPressed: forgetPasswordController.isLoading.value
+                                  ? null
+                                  : () => Get.offAll(LoginScreen()),
+                              style: TextButton.styleFrom(
+                                foregroundColor: colorScheme.primary,
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                              ),
+                              child: Text(
+                                'Back to Login',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            )),
                           ),
                         ],
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

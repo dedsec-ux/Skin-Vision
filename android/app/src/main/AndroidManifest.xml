@@ -15,12 +15,17 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- For vibration with notifications -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- For location and maps -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <application
         android:requestLegacyExternalStorage="true"
         android:label="app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -57,6 +62,7 @@
             </intent-filter>
         </receiver>
         
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

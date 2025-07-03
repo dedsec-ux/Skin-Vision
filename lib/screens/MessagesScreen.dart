@@ -6,6 +6,9 @@ import 'package:get/get.dart';
 import '../widgets/EncryptedImage.dart';
 import '../utils/NotificationService.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../controllers/FileService.dart';
+import '../widgets/FileMessageWidget.dart';
+import 'package:image_picker/image_picker.dart';
 
 class MessageScreen extends StatefulWidget {
   final String chatId;
@@ -30,7 +33,9 @@ class _MessageScreenState extends State<MessageScreen> {
   final NotificationService _notificationService = NotificationService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ScrollController _scrollController = ScrollController();
+  final FileService _fileService = FileService();
   bool _isLoading = false;
+  bool _isUploadingFile = false;
   bool _userExists = true; // Track if the other user still exists
   late Stream<QuerySnapshot> _messagesStream;
 
@@ -193,6 +198,191 @@ class _MessageScreenState extends State<MessageScreen> {
     }
   }
 
+  // Upload and send image
+  Future<void> _sendImage({ImageSource source = ImageSource.gallery}) async {
+    if (!_userExists) return;
+    
+    setState(() {
+      _isUploadingFile = true;
+    });
+
+    try {
+      final fileData = await _fileService.pickAndUploadImage(
+        chatId: widget.chatId,
+        source: source,
+      );
+
+      if (fileData != null) {
+        await _chatService.sendFileMessage(
+          chatId: widget.chatId,
+          receiverId: widget.otherUserId,
+          receiverName: widget.otherUserName,
+          fileData: fileData,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to send image: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red[100],
+        colorText: Colors.red[800],
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingFile = false;
+        });
+      }
+    }
+  }
+
+  // Upload and send PDF
+  Future<void> _sendPDF() async {
+    if (!_userExists) return;
+    
+    setState(() {
+      _isUploadingFile = true;
+    });
+
+    try {
+      final fileData = await _fileService.pickAndUploadPDF(
+        chatId: widget.chatId,
+      );
+
+      if (fileData != null) {
+        await _chatService.sendFileMessage(
+          chatId: widget.chatId,
+          receiverId: widget.otherUserId,
+          receiverName: widget.otherUserName,
+          fileData: fileData,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to send PDF: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red[100],
+        colorText: Colors.red[800],
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingFile = false;
+        });
+      }
+    }
+  }
+
+  // Show file options
+  void _showFileOptions() {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text(
+                    'Add Attachment',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            ListTile(
+              leading: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.photo_library_rounded,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 24,
+                ),
+              ),
+              title: Text(
+                'Photo from Gallery',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _sendImage(source: ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.camera_alt_rounded,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 24,
+                ),
+              ),
+              title: Text(
+                'Take Photo',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _sendImage(source: ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.picture_as_pdf_rounded,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 24,
+                ),
+              ),
+              title: Text(
+                'PDF Document',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _sendPDF();
+              },
+            ),
+            SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -251,115 +441,111 @@ class _MessageScreenState extends State<MessageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: Text(widget.otherUserName),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('users').doc(widget.otherUserId).get(),
+          builder: (context, snapshot) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: snapshot.hasData && snapshot.data!.exists
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: EncryptedImage(
+                            base64String: (snapshot.data!.data() as Map<String, dynamic>)['image'] ?? '',
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            placeholder: Icon(
+                              Icons.person_rounded,
+                              color: colorScheme.onPrimaryContainer,
+                              size: 24,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.person_rounded,
+                          color: colorScheme.onPrimaryContainer,
+                          size: 24,
+                        ),
+                ),
+                SizedBox(width: 12),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.otherUserName,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (!_userExists)
+                      Text(
+                        'User no longer available',
+                        style: TextStyle(
+                          color: colorScheme.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {});
-              _checkUserExists();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Refreshing messages...'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
+            icon: Icon(Icons.more_vert),
+            onPressed: () => _showChatOptions(),
+            color: colorScheme.onSurfaceVariant,
           ),
-          if (!_userExists)  // Only show delete button when user doesn't exist
-            IconButton(
-              icon: Icon(Icons.delete),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text('Delete Chat'),
-                    content: Text('Are you sure you want to delete this chat? This action cannot be undone.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text('CANCEL'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _deleteChat();
-                        },
-                        child: Text('DELETE', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
         ],
       ),
       body: Column(
         children: [
           if (!_userExists)
             Container(
-              width: double.infinity,
-              color: Colors.red[100],
-              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Column(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: colorScheme.errorContainer,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.red[900]),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'This user has been deleted',
-                          style: TextStyle(
-                            color: Colors.red[900],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
+                  Icon(
+                    Icons.warning_rounded,
+                    color: colorScheme.error,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This user is no longer available. You cannot send new messages.',
+                      style: TextStyle(
+                        color: colorScheme.error,
+                        fontSize: 14,
                       ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'You cannot send new messages. Please delete this chat.',
-                    style: TextStyle(
-                      color: Colors.red[800],
-                      fontSize: 14,
                     ),
-                  ),
-                  SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('Delete Chat'),
-                          content: Text('Are you sure you want to delete this chat? This action cannot be undone.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text('CANCEL'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _deleteChat();
-                              },
-                              child: Text('DELETE', style: TextStyle(color: Colors.red)),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: Icon(Icons.delete_forever),
-                    label: Text('Delete Chat'),
                   ),
                 ],
               ),
@@ -368,153 +554,164 @@ class _MessageScreenState extends State<MessageScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: _messagesStream,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Error loading messages',
+                      style: TextStyle(color: colorScheme.error),
+                    ),
+                  );
                 }
 
-                if (snapshot.hasError) {
-                  print('Error in message stream: ${snapshot.error}');
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.error, color: Colors.red, size: 48),
-                        SizedBox(height: 8),
-                        Text(
-                          'Error loading messages:',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(snapshot.error.toString()),
-                        ),
-                      ],
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
                     ),
                   );
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  print('No messages found in chat ${widget.chatId}');
                   return Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.chat_bubble_outline, color: Colors.grey, size: 48),
+                        Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 48,
+                          color: colorScheme.primary.withOpacity(0.5),
+                        ),
                         SizedBox(height: 16),
                         Text(
                           'No messages yet',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 16,
+                          ),
                         ),
                         SizedBox(height: 8),
-                        if (_userExists)
-                          Text(
-                            'Send a message to start the conversation!',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          )
-                        else
-                          Text(
-                            'This user is no longer available.',
-                            style: TextStyle(fontSize: 14, color: Colors.red),
+                        Text(
+                          'Start the conversation!',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                            fontSize: 14,
                           ),
+                        ),
                       ],
                     ),
                   );
                 }
 
-                final messages = snapshot.data!.docs;
-                
-                // Scroll to bottom after messages load
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _scrollToBottom();
-                });
-                
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: EdgeInsets.all(8),
-                  reverse: false,
-                  itemCount: messages.length,
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     try {
-                      final messageData = messages[index].data() as Map<String, dynamic>;
-                      final messageId = messages[index].id;
+                      final messageDoc = snapshot.data!.docs[index];
+                      final messageData = messageDoc.data() as Map<String, dynamic>;
                       
-                      // Safely get fields with defaults in case they're missing
                       final senderId = messageData['senderId'] ?? '';
-                      final isCurrentUser = senderId == _chatService.currentUserId;
-                      final message = messageData['message'] ?? 'No message content';
-                      final timestamp = messageData['timestamp'];
-                      final senderName = messageData['senderName'] ?? 'Unknown';
+                      final isCurrentUser = senderId == _auth.currentUser?.uid;
+                      final timestamp = messageData['timestamp'] as Timestamp?;
+                      final messageType = messageData['messageType'] ?? 'text';
+                      final message = messageData['message'] ?? '';
+                      final fileData = messageData['fileData'] as Map<String, dynamic>?;
                       
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                        child: Align(
-                      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Row(
-                            mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!isCurrentUser) 
-                                _buildUserAvatar(senderId),
-                              SizedBox(width: 8),
-                              Flexible(
-                                child: Column(
-                                  crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      constraints: BoxConstraints(
-                                        maxWidth: MediaQuery.of(context).size.width * 0.7,
-                                      ),
-                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                                        color: isCurrentUser ? Colors.blueAccent.withOpacity(0.9) : Colors.grey[200],
-                                        borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(16),
-                                          topRight: Radius.circular(16),
-                                          bottomLeft: isCurrentUser ? Radius.circular(16) : Radius.circular(4),
-                                          bottomRight: isCurrentUser ? Radius.circular(4) : Radius.circular(16),
-                                        ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: isCurrentUser 
+                            ? MainAxisAlignment.end 
+                            : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(
-                                            message,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: isCurrentUser ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                                            _formatTimestamp(timestamp),
-                              style: TextStyle(
-                                              fontSize: 10,
-                                              color: isCurrentUser ? Colors.white70 : Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                            if (!isCurrentUser) 
+                              _buildUserAvatar(senderId),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Container(
+                                constraints: BoxConstraints(
+                                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isCurrentUser 
+                                    ? colorScheme.primary
+                                    : colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
+                                    bottomLeft: Radius.circular(isCurrentUser ? 20 : 4),
+                                    bottomRight: Radius.circular(isCurrentUser ? 4 : 20),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
                                     ),
                                   ],
                                 ),
+                                child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment: isCurrentUser 
+                                      ? CrossAxisAlignment.end 
+                                      : CrossAxisAlignment.start,
+                                    children: [
+                                      if (messageType == 'file' && fileData != null)
+                                        FileMessageWidget(
+                                          fileData: fileData,
+                                          isCurrentUser: isCurrentUser,
+                                        )
+                                      else
+                                        Text(
+                                          message,
+                                          style: TextStyle(
+                                            color: isCurrentUser 
+                                              ? colorScheme.onPrimary
+                                              : colorScheme.onSurface,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        _formatTimestamp(timestamp),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isCurrentUser 
+                                            ? colorScheme.onPrimary.withOpacity(0.7)
+                                            : colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              SizedBox(width: 8),
-                              if (isCurrentUser) 
-                                _buildUserAvatar(_chatService.currentUserId),
+                            ),
+                            SizedBox(width: 8),
+                            if (isCurrentUser) 
+                              _buildUserAvatar(_chatService.currentUserId),
                           ],
                         ),
-                      ),
-                    );
+                      );
                     } catch (e) {
                       print('Error rendering message at index $index: $e');
-                      return SizedBox(); // Return empty widget if there's an error
+                      return SizedBox();
                     }
                   },
                 );
               },
             ),
           ),
-          if (_isLoading) LinearProgressIndicator(),
+          if (_isLoading || _isUploadingFile) 
+            Container(
+              height: 3,
+              child: LinearProgressIndicator(
+                backgroundColor: colorScheme.surfaceVariant,
+                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+              ),
+            ),
           if (_userExists) _buildMessageInput(),
         ],
       ),
@@ -522,28 +719,114 @@ class _MessageScreenState extends State<MessageScreen> {
   }
   
   Widget _buildMessageInput() {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-        color: Colors.white,
-      ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-              controller: _messageController,
-              decoration: InputDecoration.collapsed(
-                hintText: "Type a message",
-                hintStyle: TextStyle(color: Colors.grey),
-              ),
-              maxLines: null,
-            ),
+        color: colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: Offset(0, -2),
           ),
-          IconButton(
-            icon: Icon(Icons.send),
-            color: Colors.blueAccent,
-            onPressed: _sendMessage,
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_isUploadingFile)
+            Container(
+              margin: EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Uploading file...',
+                    style: TextStyle(
+                      color: colorScheme.onPrimaryContainer,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.attach_file_rounded, size: 24),
+                  color: colorScheme.onPrimaryContainer,
+                  onPressed: _isUploadingFile ? null : _showFileOptions,
+                  constraints: BoxConstraints(minWidth: 40, minHeight: 40),
+                  padding: EdgeInsets.all(8),
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  constraints: BoxConstraints(maxHeight: 120),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration.collapsed(
+                      hintText: "Type a message",
+                      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+                    ),
+                    maxLines: null,
+                    enabled: !_isUploadingFile,
+                    textInputAction: TextInputAction.newline,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.send_rounded, size: 24),
+                  color: colorScheme.onPrimary,
+                  onPressed: _isUploadingFile ? null : _sendMessage,
+                  constraints: BoxConstraints(minWidth: 40, minHeight: 40),
+                  padding: EdgeInsets.all(8),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -681,6 +964,125 @@ class _MessageScreenState extends State<MessageScreen> {
       radius: 16,
       backgroundColor: Colors.grey[300],
       child: Icon(Icons.person, size: 16, color: Colors.grey[600]),
+    );
+  }
+
+  void _showChatOptions() {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text(
+                    'Chat Options',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            ListTile(
+              leading: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.refresh_rounded,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 24,
+                ),
+              ),
+              title: Text(
+                'Refresh Chat',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {});
+                _checkUserExists();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Refreshing messages...'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            if (!_userExists)
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.delete_forever_rounded,
+                    color: colorScheme.onErrorContainer,
+                    size: 24,
+                  ),
+                ),
+                title: Text(
+                  'Delete Chat',
+                  style: TextStyle(
+                    color: colorScheme.error,
+                    fontSize: 16,
+                  ),
+                ),
+                subtitle: Text(
+                  'This action cannot be undone',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Delete Chat'),
+                      content: Text('Are you sure you want to delete this chat? This action cannot be undone.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('CANCEL'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _deleteChat();
+                          },
+                          child: Text(
+                            'DELETE',
+                            style: TextStyle(color: colorScheme.error),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -54,11 +54,35 @@ class _ChatScreenState extends State<ChatScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
+      backgroundColor: colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        title: Text(
+          'Messages',
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(_isLoading ? 3 : 0),
+          child: _isLoading
+              ? LinearProgressIndicator(
+                  backgroundColor: colorScheme.surfaceVariant,
+                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                )
+              : SizedBox(),
+        ),
+      ),
       body: Column(
         children: [
-          if (_isLoading)
-            LinearProgressIndicator(),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _chatService.getUserChatsStream(),
@@ -74,50 +98,104 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
                 
                 if (snapshot.connectionState == ConnectionState.waiting && _fallbackChats.isEmpty) {
-                  return Center(child: CircularProgressIndicator());
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                    ),
+                  );
                 }
                 
                 if (snapshot.hasError && _fallbackChats.isEmpty) {
                   return Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.error, color: Colors.red, size: 48),
+                          Container(
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.error_outline_rounded,
+                              color: colorScheme.error,
+                              size: 48,
+                            ),
+                          ),
+                          SizedBox(height: 24),
+                          Text(
+                            'Unable to Load Chats',
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         SizedBox(height: 8),
                         Text(
-                          'Error loading chats:',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(snapshot.error.toString()),
-                        ),
-                        ElevatedButton(
+                            'Please check your connection and try again',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 24),
+                          FilledButton.icon(
                           onPressed: _loadChats,
-                          child: Text('Try Again'),
-                        ),
-                      ],
+                            icon: Icon(Icons.refresh_rounded),
+                            label: Text('Try Again'),
+                            style: FilledButton.styleFrom(
+                              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
                 
                 if ((!snapshot.hasData || snapshot.data!.docs.isEmpty) && _fallbackChats.isEmpty) {
                   return Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.chat_bubble_outline, color: Colors.grey, size: 48),
-                        SizedBox(height: 16),
+                          Container(
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              color: colorScheme.onPrimaryContainer,
+                              size: 48,
+                            ),
+                          ),
+                          SizedBox(height: 24),
                         Text(
-                          'No chats yet',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                            'No Conversations Yet',
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Start a conversation with a doctor',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                      ],
+                            'Start chatting with doctors to get medical advice',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
@@ -171,7 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
   
   Widget _buildChatList(List<DocumentSnapshot> chatDocs) {
-    print('Building chat list with ${chatDocs.length} documents');
+    final colorScheme = Theme.of(context).colorScheme;
     
     if (chatDocs.isEmpty) {
       return ListView(
@@ -182,16 +260,34 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.chat_bubble_outline, color: Colors.grey, size: 48),
-                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: colorScheme.onPrimaryContainer,
+                    size: 48,
+                  ),
+                ),
+                SizedBox(height: 24),
                 Text(
-                  'No chats found',
-                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                  'No Conversations',
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'Pull down to refresh',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 16,
+                  ),
                 ),
               ],
             ),
@@ -201,112 +297,51 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     
     return ListView.builder(
-      itemCount: chatDocs.length,
       physics: AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.only(top: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: chatDocs.length,
       itemBuilder: (context, index) {
         try {
           final chatDoc = chatDocs[index];
-          print('Processing chat document ${chatDoc.id}');
-          
           final chatData = chatDoc.data() as Map<String, dynamic>;
           
-          // Check if participants field exists and is a map
-          if (!chatData.containsKey('participants')) {
-            print('Chat ${chatDoc.id} is missing participants field');
-            return SizedBox();
-          }
-          
+          // Get participants map
           final participants = chatData['participants'] as Map<String, dynamic>? ?? {};
-          if (participants.isEmpty) {
-            print('Chat ${chatDoc.id} has empty participants map');
-            return SizedBox();
-          }
-          
-          final emails = chatData['emails'] as Map<String, dynamic>? ?? {};
-          
-          // Get current user ID
-          final currentUserId = _auth.currentUser?.uid ?? '';
           
           // Find the other user ID (not the current user)
           final otherUserId = participants.keys.firstWhere(
-            (id) => id != currentUserId,
+            (id) => id != _auth.currentUser?.uid,
             orElse: () => '',
           );
           
-          // Skip if no other participant found
           if (otherUserId.isEmpty) {
-            print('No other user found in chat ${chatDoc.id}');
+            print('Invalid chat document: ${chatDoc.id}');
             return SizedBox();
           }
           
-          final otherUserName = participants[otherUserId] ?? 'Unknown User';
-          final otherUserEmail = emails[otherUserId] ?? '';
-          final lastMessage = chatData['lastMessage'] ?? 'No messages';
-          final timestamp = chatData['lastMessageTime'];
-          
-          // Create avatar for the chat
-          Widget avatar;
-          try {
-            avatar = _buildUserAvatar(otherUserId);
-          } catch (e) {
-            print('Error creating avatar for $otherUserName: $e');
-            avatar = CircleAvatar(
-              backgroundColor: Colors.grey.shade300,
-              child: Icon(Icons.person, color: Colors.grey.shade700),
-            );
-          }
-          
-          // Format timestamp WhatsApp style
-          String formattedTime = '';
-          if (timestamp != null) {
-            try {
-              final date = (timestamp as Timestamp).toDate();
-              final now = DateTime.now();
-              final today = DateTime(now.year, now.month, now.day);
-              final yesterday = today.subtract(Duration(days: 1));
-              
-              if (date.isAfter(today)) {
-                formattedTime = DateFormat('hh:mm a').format(date);
-              } else if (date.isAfter(yesterday)) {
-                formattedTime = 'Yesterday';
-              } else if (date.year == now.year) {
-                formattedTime = DateFormat('MMM d').format(date); // Same year
-              } else {
-                formattedTime = DateFormat('MM/dd/yy').format(date); // Different year
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance.collection('users').doc(otherUserId).get(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return _buildChatItemShimmer();
               }
-            } catch (e) {
-              print('Error formatting timestamp: $e');
-              formattedTime = '';
-            }
-          }
-          
-          // WhatsApp style chat list item
-          return Column(
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: avatar,
-                title: Text(
-                  otherUserName,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                subtitle: Text(
-                  lastMessage,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      formattedTime,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
+              
+              final userData = snapshot.data?.data() as Map<String, dynamic>?;
+              if (userData == null) {
+                return _buildDeletedUserChatItem(chatDoc.id, chatData);
+              }
+              
+              final username = userData['username'] ?? userData['name'] ?? 'Unknown User';
+              final imageUrl = userData['image'];
+              final isImageEncrypted = userData['isImageEncrypted'] ?? false;
+              final hasLargeImage = userData['hasLargeImage'] ?? false;
+              final lastMessage = chatData['lastMessage'] ?? '';
+              final lastMessageTime = chatData['lastMessageTime'] as Timestamp?;
+              final unreadCount = chatData['unreadCount'] ?? 0;
+              
+              return Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: InkWell(
                 onTap: () {
                   Navigator.push(
                     context,
@@ -314,129 +349,272 @@ class _ChatScreenState extends State<ChatScreen> {
                       builder: (context) => MessageScreen(
                         chatId: chatDoc.id,
                         otherUserId: otherUserId,
-                        otherUserName: otherUserName,
-                        otherUserEmail: otherUserEmail,
+                          otherUserName: username,
+                          otherUserEmail: userData['email'] ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Hero(
+                          tag: 'user_$otherUserId',
+                          child: Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: imageUrl != null && imageUrl.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: EncryptedImage(
+                                      base64String: imageUrl,
+                                      width: 56,
+                                      height: 56,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.person_rounded,
+                                    color: colorScheme.onPrimaryContainer,
+                                    size: 24,
+                                  ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      username,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (lastMessageTime != null)
+                                    Text(
+                                      _formatTimestamp(lastMessageTime),
+                                      style: TextStyle(
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      lastMessage,
+                                      style: TextStyle(
+                                        color: unreadCount > 0
+                                            ? colorScheme.onSurface
+                                            : colorScheme.onSurfaceVariant,
+                                        fontSize: 14,
+                                        fontWeight: unreadCount > 0
+                                            ? FontWeight.w500
+                                            : FontWeight.normal,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (unreadCount > 0)
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primary,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        unreadCount.toString(),
+                                        style: TextStyle(
+                                          color: colorScheme.onPrimary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                       ),
                     ),
                   );
                 },
-              ),
-              Divider(height: 1, indent: 72),
-            ],
           );
         } catch (e) {
-          print('Error building chat list item at index $index: $e');
+          print('Error building chat item at index $index: $e');
           return SizedBox();
         }
       },
     );
   }
   
-  Widget _buildUserAvatar(String userId) {
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data == null) {
-          // Return placeholder while loading
-          return CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.blueAccent.withOpacity(0.2),
-            child: Icon(Icons.person, size: 24, color: Colors.blueAccent),
-          );
-        }
-        
-        try {
-          final userData = snapshot.data!.data() as Map<String, dynamic>?;
-          if (userData == null) return _getDefaultAvatar();
-          
-          // Check if user has an image
-          final String? imageUrl = userData['image'];
-          final bool isEncrypted = userData['isImageEncrypted'] ?? false;
-          final bool hasLargeImage = userData['hasLargeImage'] ?? false;
-          
-          if (imageUrl == null || imageUrl.isEmpty) {
-            // No image available, use initials
-            final String username = userData['username'] ?? userData['name'] ?? 'User';
-            return CircleAvatar(
-              radius: 24,
-              backgroundColor: Colors.blueAccent.withOpacity(0.2),
-              child: Text(
-                username.isNotEmpty ? username[0].toUpperCase() : 'U',
-                style: TextStyle(fontSize: 20, color: Colors.blueAccent, fontWeight: FontWeight.bold),
+  Widget _buildChatItemShimmer() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8, left: 16, right: 16),
+      child: Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
               ),
-            );
-          }
-          
-          // Handle different image types
-          if (isEncrypted) {
-            // If image is encrypted as Base64
-            String base64String = imageUrl;
-            
-            // If the image is stored in a separate collection
-            if (hasLargeImage) {
-              // Fetch the image from the user_images collection
-              final imageDoc = FirebaseFirestore.instance.collection('user_images').doc(userId);
-              return FutureBuilder<DocumentSnapshot>(
-                future: imageDoc.get(),
-                builder: (context, imageSnapshot) {
-                  if (!imageSnapshot.hasData || imageSnapshot.data == null) {
-                    return _getDefaultAvatar();
-                  }
-                  
-                  final imageData = imageSnapshot.data!.data() as Map<String, dynamic>?;
-                  if (imageData == null) return _getDefaultAvatar();
-                  
-                  base64String = imageData['image'] ?? '';
-                  if (base64String.isEmpty) return _getDefaultAvatar();
-                  
-                  return _buildEncryptedImageAvatar(base64String);
-                },
-              );
-            }
-            
-            return _buildEncryptedImageAvatar(base64String);
-          } else {
-            // Standard URL-based image
-            return CircleAvatar(
-              radius: 24,
-              backgroundImage: NetworkImage(imageUrl),
-              backgroundColor: Colors.grey[300],
-            );
-          }
-        } catch (e) {
-          print('Error loading avatar: $e');
-          return _getDefaultAvatar();
-        }
-      },
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 120,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Container(
+                    width: 200,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
-  
-  Widget _buildEncryptedImageAvatar(String base64String) {
-    try {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+
+  Widget _buildDeletedUserChatItem(String chatId, Map<String, dynamic> chatData) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final lastMessageTime = chatData['lastMessageTime'] as Timestamp?;
+    
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8, left: 16, right: 16),
         child: Container(
-          width: 48,
-          height: 48,
-          child: EncryptedImage(
-            base64String: base64String,
-            width: 48,
-            height: 48,
-            fit: BoxFit.cover,
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: colorScheme.errorContainer,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.person_off_rounded,
+                color: colorScheme.onErrorContainer,
+                size: 24,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Deleted User',
+                          style: TextStyle(
+                            color: colorScheme.error,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (lastMessageTime != null)
+                        Text(
+                          _formatTimestamp(lastMessageTime),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'This user is no longer available',
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           ),
         ),
       );
-    } catch (e) {
-      print('Error displaying encrypted image: $e');
-      return _getDefaultAvatar();
-    }
   }
-  
-  Widget _getDefaultAvatar() {
-    return CircleAvatar(
-      radius: 24,
-      backgroundColor: Colors.blueAccent.withOpacity(0.2),
-      child: Icon(Icons.person, size: 24, color: Colors.blueAccent),
-    );
+
+  String _formatTimestamp(Timestamp timestamp) {
+    final now = DateTime.now();
+    final messageTime = timestamp.toDate();
+    final difference = now.difference(messageTime);
+    
+    if (difference.inDays > 7) {
+      return DateFormat('MMM d').format(messageTime);
+    } else if (difference.inDays > 0) {
+      return DateFormat('EEE').format(messageTime);
+    } else {
+      return DateFormat('HH:mm').format(messageTime);
+    }
   }
 }

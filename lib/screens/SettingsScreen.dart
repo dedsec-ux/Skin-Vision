@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import '../controllers/SettingsController.dart';
 import '../widgets/EncryptedImage.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class SettingsScreen extends StatefulWidget {
   @override
@@ -101,9 +102,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       User? user = _auth.currentUser;
       if (user != null) {
         try {
-          setState(() {
-            _isLoading = true;
-          });
+          Get.dialog(
+            Center(
+              child: LoadingAnimationWidget.staggeredDotsWave(
+                color: Get.theme.colorScheme.primary,
+                size: 45,
+              ),
+            ),
+            barrierDismissible: false,
+          );
           
           // Update Firestore document with any changes, preserving existing data including the image
           await _firestore.collection('users').doc(user.uid).update({
@@ -112,18 +119,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Image is updated separately via _pickImageFromGallery
           });
           
-          setState(() {
-            _isLoading = false;
-          });
+          Get.back(); // Close loading dialog
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Profile updated successfully')),
           );
           _toggleEditMode(); // Exit edit mode after saving
         } catch (e) {
-          setState(() {
-            _isLoading = false;
-          });
+          Get.back(); // Close loading dialog
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to update profile: $e')),
@@ -134,37 +137,99 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _deleteUserAccount() async {
+    final colorScheme = Theme.of(context).colorScheme;
     TextEditingController emailController = TextEditingController();
     TextEditingController passwordController = TextEditingController();
     return showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Delete Account'),
+          title: Text(
+            'Delete Account',
+            style: TextStyle(
+              color: colorScheme.error,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Are you sure you want to delete your account? This action cannot be undone.'),
+              Text(
+                'Are you sure you want to delete your account? This action cannot be undone.',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                ),
+              ),
+              SizedBox(height: 24),
               TextField(
                 controller: emailController,
-                decoration: InputDecoration(labelText: 'Email'),
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: TextStyle(color: colorScheme.primary),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceVariant,
+                ),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
+              SizedBox(height: 16),
               TextField(
                 controller: passwordController,
-                decoration: InputDecoration(labelText: 'Password'),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  labelStyle: TextStyle(color: colorScheme.primary),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceVariant,
+                ),
                 obscureText: true,
+                style: TextStyle(color: colorScheme.onSurface),
               ),
             ],
           ),
           actions: <Widget>[
             TextButton(
-              child: Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
-            TextButton(
-              child: Text('Delete'),
+            FilledButton(
               onPressed: () async {
                 try {
                   User? user = _auth.currentUser;
@@ -186,7 +251,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Account deleted successfully')),
+                      SnackBar(
+                        content: Text('Account deleted successfully'),
+                        backgroundColor: colorScheme.primaryContainer,
+                        behavior: SnackBarBehavior.floating,
+                      ),
                     );
                     // Navigate to the login screen and remove all other screens
                     Get.offAll(() => LoginScreen());
@@ -220,7 +289,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         
                         Navigator.of(context).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Account deleted successfully')),
+                          SnackBar(
+                            content: Text('Account deleted successfully'),
+                            backgroundColor: colorScheme.primaryContainer,
+                            behavior: SnackBarBehavior.floating,
+                          ),
                         );
                         Get.offAll(() => LoginScreen());
                         return;
@@ -254,27 +327,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                       
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(errorMessage)),
+                        SnackBar(
+                          content: Text(errorMessage),
+                          backgroundColor: colorScheme.errorContainer,
+                          behavior: SnackBarBehavior.floating,
+                        ),
                       );
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to delete account: $e')),
+                      SnackBar(
+                        content: Text('Failed to delete account: $e'),
+                        backgroundColor: colorScheme.errorContainer,
+                        behavior: SnackBarBehavior.floating,
+                      ),
                     );
                   }
                 }
               },
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+              ),
+              child: Text(
+                'Delete',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         );
       },
-    );
-  }
-
-  void _navigateToHistoryScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => HistoryScreen()),
     );
   }
 
@@ -321,6 +403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showChangePasswordDialog() {
+    final colorScheme = Theme.of(context).colorScheme;
     final TextEditingController currentPasswordController = TextEditingController();
     final TextEditingController newPasswordController = TextEditingController();
     final TextEditingController confirmPasswordController = TextEditingController();
@@ -329,7 +412,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Change Password'),
+          title: Text(
+            'Change Password',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -339,8 +433,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: InputDecoration(
                   hintText: 'Current Password',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceVariant,
                 ),
               ),
               SizedBox(height: 16),
@@ -350,8 +455,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: InputDecoration(
                   hintText: 'New Password',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceVariant,
                 ),
               ),
               SizedBox(height: 16),
@@ -361,8 +477,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: InputDecoration(
                   hintText: 'Confirm New Password',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceVariant,
                 ),
               ),
             ],
@@ -375,9 +502,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 confirmPasswordController.dispose();
                 Navigator.pop(context);
               },
-              child: Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            TextButton(
+            FilledButton(
               onPressed: () async {
                 try {
                   if (newPasswordController.text != confirmPasswordController.text) {
@@ -398,16 +531,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Success',
                     'Password changed successfully',
                     snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: Colors.green.withOpacity(0.1),
-                    colorText: Colors.green,
+                    backgroundColor: colorScheme.primaryContainer,
+                    colorText: colorScheme.onPrimaryContainer,
                   );
                 } catch (e) {
                   Get.snackbar(
                     'Error',
                     'Failed to change password: ${e.toString()}',
                     snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: Colors.red.withOpacity(0.1),
-                    colorText: Colors.red,
+                    backgroundColor: colorScheme.errorContainer,
+                    colorText: colorScheme.onErrorContainer,
                   );
                 } finally {
                   currentPasswordController.dispose();
@@ -415,7 +548,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   confirmPasswordController.dispose();
                 }
               },
-              child: Text('Update', style: TextStyle(color: Colors.blueAccent)),
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+              ),
+              child: Text(
+                'Update',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         );
@@ -425,225 +565,349 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isLoading) {
       return Scaffold(
         body: Center(
-          child: CircularProgressIndicator(),
+          child: LoadingAnimationWidget.staggeredDotsWave(
+            color: colorScheme.primary,
+            size: 45,
+          ),
         ),
       );
     }
 
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.blueAccent.shade100, Colors.purple.shade100],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              children: <Widget>[
-                Center(
-                  child: Column(
-                    children: [
-                      // Add a GestureDetector to handle tap for changing the image
-                      GestureDetector(
-                        onTap: _isEditing ? _pickImageFromGallery : null,
-                        child: Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 50,
-                              backgroundColor: Colors.blueAccent,
-                              backgroundImage: _userImage.isNotEmpty && !_settingsController.isImageEncrypted.value
-                                  ? NetworkImage(_userImage)
-                                  : null,
-                              child: _userImage.isEmpty
-                                  ? Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: Colors.white,
-                                    )
-                                  : _settingsController.isImageEncrypted.value
-                                      ? ClipOval(
-                                          child: EncryptedImage(
-                                            base64String: _userImage,
-                                            width: 100,
-                                            height: 100,
-                                            fit: BoxFit.cover,
-                                            placeholder: CircularProgressIndicator(
-                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                            ),
-                                            errorWidget: Icon(Icons.person, size: 50, color: Colors.white),
+        color: colorScheme.background,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 48.0),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        // Combined Profile and Personal Information Section
+                        Card(
+                          elevation: 0,
+                          color: colorScheme.surfaceVariant,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Profile Image Section
+                                GestureDetector(
+                                  onTap: _isEditing ? _pickImageFromGallery : null,
+                                  child: Stack(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: colorScheme.primary,
+                                            width: 2,
                                           ),
-                                        )
-                                      : null,
-                            ),
-                            if (_isEditing)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blueAccent,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.edit,
-                                    color: Colors.white,
-                                    size: 20,
+                                        ),
+                                        child: CircleAvatar(
+                                          radius: 50,
+                                          backgroundColor: colorScheme.primaryContainer,
+                                          backgroundImage: _userImage.isNotEmpty && !_settingsController.isImageEncrypted.value
+                                              ? NetworkImage(_userImage)
+                                              : null,
+                                          child: _userImage.isEmpty
+                                              ? Icon(
+                                                  Icons.person,
+                                                  size: 50,
+                                                  color: colorScheme.onPrimaryContainer,
+                                                )
+                                              : _settingsController.isImageEncrypted.value
+                                                  ? ClipOval(
+                                                      child: EncryptedImage(
+                                                        base64String: _userImage,
+                                                        width: 100,
+                                                        height: 100,
+                                                        fit: BoxFit.cover,
+                                                        placeholder: CircularProgressIndicator(
+                                                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                                                        ),
+                                                        errorWidget: Icon(Icons.person, size: 50, color: colorScheme.onPrimaryContainer),
+                                                      ),
+                                                    )
+                                                  : null,
+                                        ),
+                                      ),
+                                      if (_isEditing)
+                                        Positioned(
+                                          bottom: 0,
+                                          right: 0,
+                                          child: Container(
+                                            padding: EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.primary,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.edit,
+                                              color: colorScheme.onPrimary,
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 8), // Space between profile picture and gender
-                      Text(
-                        _userGender, // Display the user's gender
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 20),
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          initialValue: _userEmail,
-                          decoration: InputDecoration(
-                            labelText: 'Email',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
+                                SizedBox(height: 12),
+                                Text(
+                                    _userGender.toLowerCase() == 'male' ? '♂' : '♀',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      color: colorScheme.secondary,
+                                    ),
+                                ),
+                                SizedBox(height: 24),
+                                
+                                // Personal Information Section
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    TextFormField(
+                                      initialValue: _userEmail,
+                                      decoration: InputDecoration(
+                                        labelText: 'Email',
+                                        labelStyle: TextStyle(
+                                          color: _isEditing 
+                                            ? colorScheme.onSurfaceVariant.withOpacity(0.7)
+                                            : colorScheme.primary,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: _isEditing 
+                                              ? colorScheme.outline.withOpacity(0.5)
+                                              : colorScheme.outline,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: _isEditing 
+                                              ? colorScheme.outline.withOpacity(0.5)
+                                              : colorScheme.outline,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: _isEditing 
+                                              ? colorScheme.outline.withOpacity(0.5)
+                                              : colorScheme.primary,
+                                          ),
+                                        ),
+                                        filled: true,
+                                        fillColor: _isEditing 
+                                            ? colorScheme.surfaceVariant.withOpacity(0.3)
+                                            : colorScheme.surface,
+                                        enabled: false,
+                                      ),
+                                      enabled: false,
+                                      style: TextStyle(
+                                        color: _isEditing 
+                                            ? colorScheme.onSurface.withOpacity(0.6)
+                                            : colorScheme.onSurface,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    SizedBox(height: 16),
+                                    TextFormField(
+                                      initialValue: _userName,
+                                      decoration: InputDecoration(
+                                        labelText: 'Name',
+                                        labelStyle: TextStyle(color: _isEditing ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(color: colorScheme.outline),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(color: colorScheme.outline),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(color: colorScheme.primary),
+                                        ),
+                                        filled: true,
+                                        fillColor: colorScheme.surface,
+                                      ),
+                                      enabled: _isEditing,
+                                      style: TextStyle(color: colorScheme.onSurface),
+                                      onChanged: _updateUserName,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Please enter your name';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    SizedBox(height: 16),
+                                    TextFormField(
+                                      readOnly: true,
+                                      controller: TextEditingController(
+                                        text: '${_userDateOfBirth.toLocal()}'.split(' ')[0],
+                                      ),
+                                      onTap: _isEditing
+                                          ? () async {
+                                              final DateTime? pickedDate = await showDatePicker(
+                                                context: context,
+                                                initialDate: _userDateOfBirth,
+                                                firstDate: DateTime(1900),
+                                                lastDate: DateTime.now(),
+                                                builder: (context, child) {
+                                                  return Theme(
+                                                    data: Theme.of(context).copyWith(
+                                                      colorScheme: colorScheme,
+                                                    ),
+                                                    child: child!,
+                                                  );
+                                                },
+                                              );
+                                              if (pickedDate != null && pickedDate != _userDateOfBirth) {
+                                                _updateUserDateOfBirth(pickedDate);
+                                              }
+                                            }
+                                          : null,
+                                      decoration: InputDecoration(
+                                        labelText: 'Date of Birth',
+                                        labelStyle: TextStyle(color: _isEditing ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(color: colorScheme.outline),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(color: colorScheme.outline),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(color: colorScheme.primary),
+                                        ),
+                                        filled: true,
+                                        fillColor: colorScheme.surface,
+                                        suffixIcon: _isEditing
+                                            ? Icon(
+                                                Icons.calendar_today,
+                                                color: colorScheme.primary,
+                                              )
+                                            : null,
+                                      ),
+                                      style: TextStyle(color: colorScheme.onSurface),
+                                      enabled: _isEditing,
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          enabled: false, // Email is non-editable
-                        ),
-                        SizedBox(height: 16),
-                        TextFormField(
-                          initialValue: _userName,
-                          decoration: InputDecoration(
-                            labelText: 'Name',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          enabled: _isEditing, // Name is editable in edit mode
-                          onChanged: (value) {
-                            _updateUserName(value);
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your name';
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: 16),
-                        ListTile(
-                          title: Text('Date of Birth'),
-                          subtitle: Text('${_userDateOfBirth.toLocal()}'.split(' ')[0]),
-                          onTap: _isEditing
-                              ? () async {
-                                  final DateTime? pickedDate = await showDatePicker(
-                                    context: context,
-                                    initialDate: _userDateOfBirth,
-                                    firstDate: DateTime(1900),
-                                    lastDate: DateTime.now(),
-                                  );
-                                  if (pickedDate != null && pickedDate != _userDateOfBirth) {
-                                    _updateUserDateOfBirth(pickedDate);
-                                  }
-                                }
-                              : null,
                         ),
                       ],
                     ),
                   ),
                 ),
-                SizedBox(height: 20),
-                if (_isEditing)
-                  ElevatedButton(
-                    onPressed: _saveChanges,
-                    child: Text('Save Changes'),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.blueAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+
+                // Action Buttons
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _isEditing
+                              ? FilledButton(
+                                  onPressed: _saveChanges,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: colorScheme.onPrimary,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    minimumSize: Size(0, 45),
+                                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  ),
+                                  child: Text(
+                                    'Save Changes',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                  ),
+                                )
+                              : FilledButton(
+                                  onPressed: _toggleEditMode,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: colorScheme.onPrimary,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    minimumSize: Size(0, 45),
+                                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  ),
+                                  child: Text(
+                                    'Edit Profile',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.tonal(
+                            onPressed: _showChangePasswordDialog,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: colorScheme.secondaryContainer,
+                              foregroundColor: colorScheme.onSecondaryContainer,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              minimumSize: Size(0, 45),
+                              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            ),
+                            child: Text(
+                              'Change Password',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    Center(
+                      child: SizedBox(
+                        width: 200,
+                        child: OutlinedButton(
+                          onPressed: _deleteUserAccount,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colorScheme.error,
+                            side: BorderSide(color: colorScheme.error),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            minimumSize: Size(0, 45),
+                            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          child: Text(
+                            'Delete Account',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                        ),
                       ),
-                      padding: EdgeInsets.symmetric(vertical: 16),
                     ),
-                  ),
-                if (!_isEditing)
-                  ElevatedButton(
-                    onPressed: _toggleEditMode,
-                    child: Text('Edit Profile'),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.blueAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: _navigateToHistoryScreen,
-                  child: Text('View History'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.purpleAccent,
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                  ),
+                  ],
                 ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: _showChangePasswordDialog,
-                  child: Text('Change Password'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.blueAccent,
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: _deleteUserAccount,
-                  child: Text('Delete Account', style: TextStyle(color: Colors.red)),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-                SizedBox(height: 20),
               ],
             ),
           ),
@@ -653,21 +917,3 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class HistoryScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('History'),
-        centerTitle: true,
-        backgroundColor: Colors.blueAccent,
-      ),
-      body: Center(
-        child: Text(
-          'User History',
-          style: TextStyle(fontSize: 24),
-        ),
-      ),
-    );
-  }
-}

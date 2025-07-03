@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'controllers/login_controller.dart'; // Import the LoginController
 import 'controllers/SettingsController.dart'; // Import the SettingsController
 import 'controllers/ChatService.dart'; // Import the ChatService
+import 'controllers/register_controller.dart'; // Import RegisterController
 import 'package:flutter/services.dart';
 
 void main() async {
@@ -36,15 +37,22 @@ void main() async {
   Get.put(ChatService(), permanent: true);
   print('DEBUG: ChatService initialized successfully');
 
-  // Register other controllers
+  // Register controllers
   Get.put(LoginController(), permanent: true);
   Get.put(SettingsController(), permanent: true);
+  Get.put(RegisterController(), permanent: true); // Add RegisterController
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Set full screen mode
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+    overlays: [],
+  );
 
   runApp(MyApp(notificationService: notificationService));
 }

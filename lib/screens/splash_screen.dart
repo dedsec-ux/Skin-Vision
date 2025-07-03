@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:app/utils/PermissionHandler.dart';
 import 'package:app/utils/NotificationService.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
 import 'admin_panel.dart'; // Import the AdminPanelScreen
@@ -124,15 +125,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         // Initialize SettingsController before navigation
         Get.put(SettingsController()); // Initialize SettingsController
 
-        // Prioritize doctor role in navigation
-        if (isDoctor) {
-          // If user is doctor, navigate to DoctorScreen
-          print('SPLASH: User is doctor, navigating to Doctor Screen');
-          Get.offAll(DoctorPanelScreen(), transition: Transition.fadeIn); 
-        } else if (isAdmin) {
-          // If user is admin only, navigate to AdminScreen
-          print('SPLASH: User is admin only, navigating to Admin Screen');
+        // Prioritize admin role over doctor role in navigation
+        if (isAdmin) {
+          // If user is admin, navigate to AdminScreen (admin takes priority)
+          print('SPLASH: User is admin, navigating to Admin Screen');
           Get.offAll(AdminPanelScreen());
+        } else if (isDoctor) {
+          // If user is doctor only (not admin), navigate to DoctorScreen
+          print('SPLASH: User is doctor only, navigating to Doctor Screen');
+          Get.offAll(DoctorScreen(), transition: Transition.fadeIn);
         } else {
           // If user has no special roles, navigate to HomeScreen
           print('SPLASH: User has no special roles, navigating to Home Screen');
@@ -151,46 +152,66 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.blueAccent,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Animated Medical Icon
-            ScaleTransition(
-              scale: _scaleAnimation,
-              child: Icon(
-                Icons.local_hospital,
-                size: 100,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(height: 20),
-            // Animated App Name (Fade-in)
-            TweenAnimationBuilder(
-              tween: Tween<double>(begin: 0.0, end: 1.0),
-              duration: Duration(seconds: 2),
-              builder: (context, double opacity, child) {
-                return Opacity(
-                  opacity: opacity,
-                  child: Text(
-                    'Skin Vision',
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFEDE7F6),  // Very Light Purple
+              Color(0xFFD1C4E9),  // Light Purple
+            ],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated Medical Icon
+              ScaleTransition(
+                scale: _scaleAnimation,
+                child: Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondary.withOpacity(0.1),
+                    shape: BoxShape.circle,
                   ),
-                );
-              },
-            ),
-            SizedBox(height: 10),
-            // Loading Indicator
-            CircularProgressIndicator(
-              color: Colors.white,
-            ),
-          ],
+                  child: Icon(
+                    Icons.health_and_safety_rounded,
+                    size: 80,
+                    color: colorScheme.secondary,
+                  ),
+                ),
+              ),
+              SizedBox(height: 20),
+              // Animated App Name (Fade-in)
+              TweenAnimationBuilder(
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                duration: Duration(seconds: 2),
+                builder: (context, double opacity, child) {
+                  return Opacity(
+                    opacity: opacity,
+                    child: Text(
+                      'Skin Vision',
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: colorScheme.secondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 10),
+              // Loading Indicator
+              LoadingAnimationWidget.staggeredDotsWave(
+                color: colorScheme.secondary,
+                size: 45,
+              ),
+            ],
+          ),
         ),
       ),
     );

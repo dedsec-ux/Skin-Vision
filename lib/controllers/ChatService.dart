@@ -72,6 +72,112 @@ class ChatService {
     }
   }
 
+  // Send a file message
+  Future<void> sendFileMessage({
+    required String chatId,
+    required String receiverId,
+    required String receiverName,
+    required Map<String, dynamic> fileData,
+  }) async {
+    final uid = currentUserId;
+    if (uid.isEmpty) {
+      print('Cannot send file message: user not authenticated');
+      return;
+    }
+    
+    // Check if recipient still exists
+    final recipientExists = await checkIfUserExists(receiverId);
+    if (!recipientExists) {
+      print('Cannot send file message: recipient user no longer exists');
+      throw Exception('This user is no longer available. Files cannot be sent.');
+    }
+    
+    // Make sure receiverId is not the same as current user
+    if (receiverId == uid) {
+      print('WARNING: Trying to send a file message to self. Using test_user_123 instead');
+      receiverId = 'test_user_123';
+      receiverName = 'Test User';
+    }
+    
+    print('Sending file message from $uid to $receiverId in chat $chatId');
+    print('File data: ${fileData['name']} (${fileData['type']})');
+    
+    // Use server timestamp to ensure consistency
+    final timestamp = FieldValue.serverTimestamp();
+    final senderName = await _getUserName(uid);
+    print('Sender name resolved as: $senderName');
+    
+    // File message data
+    final messageData = {
+      'senderId': uid,
+      'senderEmail': currentUserEmail,
+      'senderName': senderName,
+      'message': '', // Empty message for file messages
+      'messageType': 'file', // Add message type field
+      'fileData': {
+        'url': fileData['url'],
+        'name': fileData['name'],
+        'size': fileData['size'],
+        'type': fileData['type'],
+        'uploadPath': fileData['uploadPath'],
+      },
+      'timestamp': timestamp,
+    };
+    
+    try {
+      print('Adding file message to chat $chatId collection...');
+      // Add to messages subcollection
+      final docRef = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messageData);
+      
+      print('File message added with ID: ${docRef.id}');
+      
+      // Update chat document with last message info
+      final lastMessageText = fileData['type'] == 'image' ? '📷 Image' : '📄 ${fileData['name']}';
+      await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .set({
+        'participants': {
+          uid: senderName,
+          receiverId: receiverName,
+        },
+        'emails': {
+          uid: currentUserEmail,
+          receiverId: await _getUserEmail(receiverId),
+        },
+        'lastMessage': lastMessageText,
+        'lastMessageTime': timestamp,
+        'updatedAt': timestamp,
+      }, SetOptions(merge: true));
+      
+      print('Chat document updated with last file message info');
+      
+      // Send notification to recipient
+      print('NOTIFICATION DEBUG: About to send file notification to recipient: $receiverId');
+      try {
+        await _notificationService.sendMessageNotification(
+          receiverId: receiverId,
+          senderName: senderName,
+          message: lastMessageText,
+          chatId: chatId,
+        );
+        print('NOTIFICATION DEBUG: File notification sent successfully to recipient');
+      } catch (notificationError) {
+        // Don't fail the entire send message operation if notification fails
+        print('ERROR sending file notification: $notificationError');
+        print('ERROR stacktrace: ${StackTrace.current}');
+      }
+      
+    } catch (e) {
+      print('Error sending file message: $e');
+      throw e;
+    }
+  }
+
   // Send a message
   Future<void> sendMessage({
     required String chatId,
@@ -113,6 +219,7 @@ class ChatService {
       'senderEmail': currentUserEmail,
       'senderName': senderName,
       'message': message.trim(),
+      'messageType': 'text', // Add message type field
       'timestamp': timestamp,
     };
     

@@ -14,6 +14,12 @@ class ChatController extends GetxController {
     fetchUserChats();
   }
 
+  // Clear all user data when logging out
+  void clearUserData() {
+    chats.clear();
+    chatFound.value = false;
+  }
+
   Future<void> fetchUserChats() async {
     try {
       final currentUserEmail = _auth.currentUser?.email;

@@ -7,16 +7,94 @@ import 'package:uuid/uuid.dart';
 
 class RegisterController extends GetxController {
   // Text Controllers
-  final usernameController = TextEditingController();
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
-  final dobController = TextEditingController();
+  TextEditingController? _usernameController;
+  TextEditingController? _emailController;
+  TextEditingController? _passwordController;
+  TextEditingController? _confirmPasswordController;
+  TextEditingController? _dobController;
 
-  // Variables for validation and state
-  var gender = 'Male'.obs;
+  // Getters for controllers
+  TextEditingController get usernameController => _usernameController ??= TextEditingController();
+  TextEditingController get emailController => _emailController ??= TextEditingController();
+  TextEditingController get passwordController => _passwordController ??= TextEditingController();
+  TextEditingController get confirmPasswordController => _confirmPasswordController ??= TextEditingController();
+  TextEditingController get dobController => _dobController ??= TextEditingController();
+
+  // Observable variables
+  var gender = 'Male'.obs;  // Default to Male
   var isPasswordHidden = true.obs;
   var isConfirmPasswordHidden = true.obs;
+  var isLoading = false.obs;
+  var errorMessage = ''.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Reset state when controller is initialized
+    isLoading.value = false;
+    errorMessage.value = '';
+    gender.value = 'Male';  // Ensure default is set
+  }
+
+  @override
+  void onClose() {
+    // Clean up resources
+    _disposeControllers();
+    super.onClose();
+  }
+
+  void _disposeControllers() {
+    _usernameController?.dispose();
+    _emailController?.dispose();
+    _passwordController?.dispose();
+    _confirmPasswordController?.dispose();
+    _dobController?.dispose();
+    
+    _usernameController = null;
+    _emailController = null;
+    _passwordController = null;
+    _confirmPasswordController = null;
+    _dobController = null;
+  }
+
+  void resetControllers() {
+    _disposeControllers();
+    isLoading.value = false;
+    errorMessage.value = '';
+    gender.value = 'Male';
+    isPasswordHidden.value = true;
+    isConfirmPasswordHidden.value = true;
+  }
+
+  // Form Validation
+  bool validateForm() {
+    errorMessage.value = '';
+    
+    if (usernameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty ||
+        confirmPasswordController.text.isEmpty ||
+        dobController.text.isEmpty) {
+      errorMessage.value = 'All fields must be filled!';
+      return false;
+    }
+
+    if (passwordController.text != confirmPasswordController.text) {
+      errorMessage.value = 'Passwords do not match!';
+      return false;
+    }
+
+    if (!validatePassword(passwordController.text)) {
+      errorMessage.value = 'Password must be at least 8 characters long and include:\n'
+        '- 1 uppercase letter\n'
+        '- 1 lowercase letter\n'
+        '- 1 number\n'
+        '- 1 special character';
+      return false;
+    }
+
+    return true;
+  }
 
   // Password Validation
   bool validatePassword(String password) {
@@ -28,48 +106,15 @@ class RegisterController extends GetxController {
     return true;
   }
 
-  // Form Validation
-  bool validateForm() {
-    if (usernameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        passwordController.text.isEmpty ||
-        confirmPasswordController.text.isEmpty ||
-        dobController.text.isEmpty) {
-      Get.snackbar('Error', 'All fields must be filled!',
-          snackPosition: SnackPosition.TOP);
-      return false;
-    }
-
-    if (passwordController.text != confirmPasswordController.text) {
-      Get.snackbar('Error', 'Passwords do not match!',
-          snackPosition: SnackPosition.TOP);
-      return false;
-    }
-
-    if (!validatePassword(passwordController.text)) {
-      Get.snackbar(
-        'Error',
-        'Password must be at least 8 characters long and include:\n'
-        '- 1 uppercase letter\n'
-        '- 1 lowercase letter\n'
-        '- 1 number\n'
-        '- 1 special character',
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 5),
-      );
-      return false;
-    }
-
-    return true;
-  }
-
   // Register the user
-  Future<void> registerUser() async {
+  Future<void> register() async {
     if (!validateForm()) return;
 
     try {
-      // Wrap the entire registration process in a try-catch block
-    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+
+      // Create user with Firebase Auth
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
         email: emailController.text.trim(),
@@ -80,11 +125,11 @@ class RegisterController extends GetxController {
       String uniqueId = const Uuid().v4();
 
       if (userId.isEmpty) {
-        print("Error: User ID is null or empty!");
-        Get.snackbar('Error', 'Failed to get user ID.', snackPosition: SnackPosition.TOP);
+        errorMessage.value = 'Failed to get user ID.';
         return;
       }
 
+      // Create user data
       Map<String, dynamic> userData = {
         'username': usernameController.text.trim(),
         'email': emailController.text.trim(),
@@ -99,131 +144,66 @@ class RegisterController extends GetxController {
         'uId': uniqueId,
       };
 
+      // Save user data to Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .set(userData, SetOptions(merge: true));
 
+      // Send verification email
       await userCredential.user?.sendEmailVerification();
 
-      Get.snackbar('Registration Successful', 'Verification email sent.',
-          snackPosition: SnackPosition.TOP);
+      Get.snackbar(
+        'Registration Successful',
+        'Verification email sent.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.surfaceVariant,
+        colorText: Get.theme.colorScheme.onSurfaceVariant,
+      );
 
-        Get.offAll(() => LoginScreen());
+      // Clean up before navigation
+      _disposeControllers();
+      Get.delete<RegisterController>();
+      
+      // Navigate to login screen
+      Get.offAll(() => LoginScreen());
+    } on FirebaseAuthException catch (e) {
+      String errorMsg;
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMsg = 'This email is already registered';
+          break;
+        case 'invalid-email':
+          errorMsg = 'The email address is not valid';
+          break;
+        case 'operation-not-allowed':
+          errorMsg = 'Email/password accounts are not enabled';
+          break;
+        case 'weak-password':
+          errorMsg = 'The password is too weak';
+          break;
+        default:
+          errorMsg = e.message ?? 'Registration failed';
+      }
+      errorMessage.value = errorMsg;
+      Get.snackbar(
+        'Error',
+        errorMsg,
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
     } catch (e) {
-        print("❌ REGULAR ERROR: $e");
-      
-        // Simple error recovery for registration
-        User? currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser != null) {
-          try {
-            print("User was created but there was an error - attempting recovery");
-            // The user was likely created despite the error
-            String userId = currentUser.uid;
-            String uniqueId = const Uuid().v4();
-            
-            Map<String, dynamic> userData = {
-              'username': usernameController.text.trim(),
-              'email': emailController.text.trim(),
-              'gender': gender.value,
-              'dob': dobController.text.trim(),
-              'admin': false,
-              'doctor': false,
-              'description': '',
-              'availability': false,
-              'image': '',
-              'designation': '',
-              'uId': uniqueId
-            };
-            
-            // Ensure Firestore data is created
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(userId)
-                .set(userData, SetOptions(merge: true));
-                
-            // Try to send verification email
-            await currentUser.sendEmailVerification();
-            
-            Get.snackbar('Registration Successful', 'Verification email sent.',
-                snackPosition: SnackPosition.TOP);
-            
-            Get.offAll(() => LoginScreen());
-            return;
-          } catch (recoveryError) {
-            print("Recovery attempt failed: $recoveryError");
-          }
-        }
-        
-        // Handle Firebase Auth errors with user-friendly messages
-        if (e is FirebaseAuthException) {
-          String errorMessage;
-          switch (e.code) {
-            case 'email-already-in-use':
-              errorMessage = 'This email is already registered';
-              break;
-            case 'invalid-email':
-              errorMessage = 'The email address is not valid';
-              break;
-            case 'operation-not-allowed':
-              errorMessage = 'Email/password accounts are not enabled';
-              break;
-            case 'weak-password':
-              errorMessage = 'The password is too weak';
-              break;
-            default:
-              errorMessage = e.message ?? 'Registration failed';
-          }
-          Get.snackbar('Error', errorMessage, snackPosition: SnackPosition.TOP);
-        } else {
-      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.TOP);
-        }
-      }
-    } catch (outerError) {
-      // Catch any unexpected errors, including PigeonUserDetail errors
-      print("❌ CRITICAL ERROR: $outerError");
-      
-      // Try an extreme recovery attempt for registration
-      User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser != null) {
-        try {
-          print("Final fallback: User exists but encountered critical error");
-          // For critical errors, just try to create the Firestore document
-          String uniqueId = const Uuid().v4();
-          
-          Map<String, dynamic> userData = {
-            'username': usernameController.text.trim(),
-            'email': emailController.text.trim(),
-            'gender': gender.value,
-            'dob': dobController.text.trim(),
-            'admin': false,
-            'doctor': false,
-            'description': '',
-            'availability': false,
-            'image': '',
-            'designation': '',
-            'uId': uniqueId
-          };
-          
-          // Try to save user data
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(currentUser.uid)
-              .set(userData);
-          
-          Get.snackbar('Registration Successful', 'Please verify your email to continue.',
-              snackPosition: SnackPosition.TOP);
-          
-          Get.offAll(() => LoginScreen());
-          return;
-        } catch (finalError) {
-          print("Final recovery attempt failed: $finalError");
-        }
-      }
-      
-      // Show a generic error message if all else fails
-      Get.snackbar('Registration Failed', 'Please try again later.',
-          snackPosition: SnackPosition.TOP);
+      errorMessage.value = 'An unexpected error occurred';
+      Get.snackbar(
+        'Error',
+        'An unexpected error occurred',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
+    } finally {
+      isLoading.value = false;
     }
   }
 }

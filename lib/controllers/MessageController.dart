@@ -55,4 +55,9 @@ class MessageController extends GetxController {
   String _generateChatId(String email1, String email2) {
     return email1.hashCode <= email2.hashCode ? '$email1-$email2' : '$email2-$email1';
   }
+
+  // Clear all user data when logging out
+  void clearUserData() {
+    messages.clear();
+  }
 }

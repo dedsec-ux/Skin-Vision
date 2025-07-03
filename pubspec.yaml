@@ -51,6 +51,13 @@ dependencies:
   flutter_image_compress: ^2.1.0
   device_info_plus: ^9.1.1
   flutter_local_notifications: ^19.2.0
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  geocoding: ^2.1.1
+  geolocator: ^10.1.0
+  curved_navigation_bar: ^1.0.3
+  loading_animation_widget: ^1.2.0+4
+  cached_network_image: ^3.4.0
 
 dev_dependencies:
   flutter_test:

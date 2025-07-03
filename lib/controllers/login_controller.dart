@@ -7,6 +7,11 @@ import 'package:get/get.dart';
 import 'dart:async';
 import 'dart:developer' as developer;
 import '../screens/login_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'SettingsController.dart';
+import 'MessageController.dart';
+import 'ChatController.dart';
 
 class LoginController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -16,6 +21,24 @@ class LoginController extends GetxController {
   var isLoading = false.obs;
   var errorMessage = ''.obs;
   var userId = ''.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Reset state when controller is initialized
+    isLoading.value = false;
+    errorMessage.value = '';
+    userId.value = '';
+  }
+
+  @override
+  void onClose() {
+    // Clean up any resources when controller is closed
+    isLoading.value = false;
+    errorMessage.value = '';
+    userId.value = '';
+    super.onClose();
+  }
 
   // Simple helper method to get user-friendly error messages
   String _getErrorMessage(Object error) {
@@ -48,78 +71,93 @@ class LoginController extends GetxController {
   }
 
   Future<void> login(String email, String password) async {
-    isLoading.value = true;
-    errorMessage.value = '';
-    
-    developer.log('LOGIN: Starting login for $email');
-    
     try {
-      // Try to handle the entire login flow in a parent try-catch to handle any unexpected errors
-    try {
-      // Authenticate with Firebase
-      final userCredential = await _auth.signInWithEmailAndPassword(
+      // Set loading state
+      isLoading.value = true;
+      errorMessage.value = '';
+
+      // Attempt to sign in
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
-      ).timeout(const Duration(seconds: 30), onTimeout: () {
-        throw TimeoutException('Login timed out. Please try again.');
-      });
-      
-      developer.log('LOGIN: Authentication successful for $email');
-      
-      if (userCredential.user == null) {
-        throw Exception('Authentication failed: No user returned');
-      }
-      
-      // Check if email is verified
-      if (!userCredential.user!.emailVerified) {
-        await sendVerificationEmail();
-        errorMessage.value = 'Please verify your email first. A verification email has been sent.';
-        isLoading.value = false;
+      );
+
+      // Get user data from Firestore
+      DocumentSnapshot userDoc = await _firestore
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        errorMessage.value = 'User data not found.';
         return;
       }
+
+      Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
       
-      developer.log('LOGIN: Email verified, proceeding with data fetch');
-      
-      // Process login and navigate to appropriate screen
-      await _getRoleAndNavigate(userCredential.user!.uid, email);
+      // Store user ID
+      userId.value = userCredential.user!.uid;
+
+      // Check for doctor role
+      bool isDoctor = false;
+      bool isAdmin = false;
+
+      // Check doctor status
+      if (userData.containsKey('doctor')) {
+        var doctorValue = userData['doctor'];
+        if (doctorValue is bool) {
+          isDoctor = doctorValue;
+        } else if (doctorValue is String) {
+          isDoctor = doctorValue.toLowerCase() == 'true';
+        }
+      }
+
+      // Check admin status
+      if (userData.containsKey('admin')) {
+        var adminValue = userData['admin'];
+        if (adminValue is bool) {
+          isAdmin = adminValue;
+        } else if (adminValue is String) {
+          isAdmin = adminValue.toLowerCase() == 'true';
+        }
+      }
+
+      // Log navigation decision
+      developer.log('LOGIN: User roles - Doctor: $isDoctor, Admin: $isAdmin');
+
+      // Navigate based on role - Admin takes priority over Doctor
+      if (isAdmin) {
+        developer.log('LOGIN: Navigating to AdminPanelScreen');
+        Get.offAll(() => AdminPanelScreen(), transition: Transition.fade);
+      } else if (isDoctor) {
+        developer.log('LOGIN: Navigating to DoctorPanelScreen');
+        Get.offAll(() => DoctorScreen(), transition: Transition.fade);
+      } else {
+        developer.log('LOGIN: Navigating to HomeScreen');
+        Get.offAll(() => HomeScreen(), transition: Transition.fade);
+      }
+
+      errorMessage.value = '';
+    } on FirebaseAuthException catch (e) {
+      errorMessage.value = _getErrorMessage(e);
+      Get.snackbar(
+        'Login Error',
+        errorMessage.value,
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
     } catch (e) {
-        // This inner try-catch handles specific Firebase errors
-      developer.log('LOGIN ERROR: $e');
-      
-        // Simple direct error handling
-        errorMessage.value = _getErrorMessage(e);
-          isLoading.value = false;
-        
-        // If we already have a logged-in user despite the error, try to continue
-        User? currentUser = _auth.currentUser;
-        if (currentUser != null && currentUser.emailVerified) {
-          developer.log('LOGIN: User is still authenticated despite error, proceeding with navigation');
-          await _getRoleAndNavigate(currentUser.uid, email);
-        }
-      }
-    } catch (outerError) {
-      // This outer catch block catches any unexpected errors, including PigeonUserDetails errors
-      developer.log('CRITICAL LOGIN ERROR: $outerError');
-      
-      // Always set loading to false in error case
+      errorMessage.value = 'An unexpected error occurred.';
+      Get.snackbar(
+        'Error',
+        errorMessage.value,
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
+    } finally {
       isLoading.value = false;
-      
-      // Set a generic error message for unexpected errors
-      errorMessage.value = 'Login error: Please try again later';
-      
-      // Check if we have a user and can still navigate
-      User? currentUser = _auth.currentUser;
-      if (currentUser != null && currentUser.emailVerified) {
-        developer.log('LOGIN: Despite critical error, user is authenticated, attempting navigation');
-        try {
-          await _getRoleAndNavigate(currentUser.uid, email);
-        } catch (navError) {
-          developer.log('NAVIGATION ERROR in recovery: $navError');
-          // Fall back to home screen in worst case
-          await Future.delayed(Duration(milliseconds: 300));
-          Get.offAll(() => HomeScreen(), transition: Transition.fade);
-        }
-      }
     }
   }
   
@@ -260,7 +298,7 @@ class LoginController extends GetxController {
           developer.log('NAVIGATION: User is doctor, going to Doctor Panel');
           // Add a short delay to ensure UI state is updated
           await Future.delayed(Duration(milliseconds: 200));
-          Get.offAll(() => DoctorPanelScreen(), transition: Transition.fade);
+          Get.offAll(() => DoctorScreen(), transition: Transition.fade);
           developer.log('NAVIGATION: Navigation to DoctorPanelScreen completed');
         }
         else {
@@ -304,11 +342,54 @@ class LoginController extends GetxController {
   
   Future<void> logout() async {
     try {
+      Get.dialog(
+        Center(
+          child: LoadingAnimationWidget.staggeredDotsWave(
+            color: Get.theme.colorScheme.primary,
+            size: 45,
+          ),
+        ),
+        barrierDismissible: false,
+      );
+
+      // Clear all user data from SettingsController before logout
+      if (Get.isRegistered<SettingsController>()) {
+        final settingsController = Get.find<SettingsController>();
+        settingsController.clearUserData();
+      }
+
+      // Clear any other controllers that might store user data
+      if (Get.isRegistered<MessageController>()) {
+        final messageController = Get.find<MessageController>();
+        messageController.clearUserData();
+      }
+
+      if (Get.isRegistered<ChatController>()) {
+        final chatController = Get.find<ChatController>();
+        chatController.clearUserData();
+      }
+
       await _auth.signOut();
+      Get.back(); // Close loading dialog
+      
+      // Clear all controllers and their data
+      await Get.deleteAll();
+      
+      // Reset login controller state
+      isLoading.value = false;
+      errorMessage.value = '';
       userId.value = '';
-      Get.offAll(() => LoginScreen());
+      
+      Get.offAll(() => LoginScreen(), transition: Transition.fade);
     } catch (e) {
-      errorMessage.value = 'Logout failed: ${e.toString()}';
+      Get.back(); // Close loading dialog
+      Get.snackbar(
+        'Error',
+        'Failed to logout. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+      );
     }
   }
 }
